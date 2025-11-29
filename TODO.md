@@ -1,102 +1,260 @@
-# Scaffolding Tool Improvement Opportunities
+# Canary Project - Remaining Work
 
-Issues discovered while building the canary project that indicate improvements needed in `create-mcp-typescript-simple`:
-
-## 1. Vitest Configuration - Workspace Path Aliases (HIGH PRIORITY)
-
-**Issue:** The scaffolded `vitest.config.ts` includes workspace-style path aliases:
-
-```typescript
-resolve: {
-  alias: {
-    '@mcp-typescript-simple/tools': resolve(__dirname, '../tools/src'),
-    '@mcp-typescript-simple/tools-llm': resolve(__dirname, '../tools-llm/src'),
-    // ... etc
-  }
-}
-```
-
-**Problem:**
-- These paths point to `../tools/src`, expecting a workspace structure
-- For standalone projects using published npm packages, these aliases break module resolution
-- Tests fail with "Cannot find module '@mcp-typescript-simple/tools'"
-
-**Solution:**
-- Remove `resolve.alias` configuration entirely from scaffolded projects
-- Let Node.js/Vitest resolve @mcp-typescript-simple packages from node_modules
-- The aliases are only needed for workspace development, not standalone projects
-
-**Impact:** CRITICAL - prevents tests from running after scaffolding
-
-**Fixed in canary by:** Removing entire `resolve.alias` block from vitest.config.ts
+This file tracks remaining work for the mcp-typescript-simple-canary project. This project serves as a breaking change detector for the `@mcp-typescript-simple` framework by consuming published npm packages.
 
 ---
 
-## 2. Scaffolding Into Existing Directory (MEDIUM PRIORITY)
+## Project Status
 
-**Issue:** Cannot scaffold into current directory:
+### ✅ Completed
+
+- [x] GitHub repository created: https://github.com/jdutton/mcp-typescript-simple-canary
+- [x] Project scaffolded with `@mcp-typescript-simple@0.9.0` packages
+- [x] Custom `current-timestamp` tool implemented with timezone support
+- [x] Interface stability tests: **19/19 passing**
+- [x] Type compatibility tests: **14/14 passing**
+- [x] OAuth (GitHub) + Redis session management configured
+- [x] Fixed vitest.config.ts workspace alias issue
+- [x] Committed and pushed to GitHub
+- [x] System tests (HTTP): **16/16 passing** - CORS issue identified and fixed
+- [x] Scaffolding bug documented in `TODO-FEEDBACK.md` (git-ignored)
+
+### ⚠️ Known Issues
+
+- ~~System tests (HTTP): 2/16 passing~~ **RESOLVED** - Was a CORS configuration mismatch in scaffolding (see TODO-FEEDBACK.md)
+
+---
+
+## 🎯 Part A: Complete Canary Project Setup
+
+### 1. Set Up Vercel Deployment
+
+**Goal:** Deploy canary project to Vercel for production testing
+
+**Steps:**
+1. Configure Vercel project:
+   ```bash
+   cd /Users/jeff/Workspaces/mcp-typescript-simple-canary
+   vercel link  # Link to Vercel account
+   ```
+
+2. Set environment variables in Vercel dashboard:
+   - `TOKEN_ENCRYPTION_KEY` (copy from .env.local)
+   - Optional: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+   - Optional: OAuth credentials if testing auth flows
+
+3. Test deployment:
+   ```bash
+   vercel --prod
+   curl https://mcp-typescript-simple-canary.vercel.app/health
+   ```
+
+4. Document deployment URL in README.md
+
+**Expected outcome:** Live canary server accessible at Vercel URL
+
+---
+
+### 2. Create GitHub Actions CI/CD Workflow
+
+**Goal:** Automated validation pipeline that runs on every push
+
+**Create:** `.github/workflows/canary-validation.yml`
+
+**Workflow should:**
+1. Run on push to main and pull requests
+2. Install dependencies: `npm ci`
+3. Run interface stability tests: `npm test -- test/interface-stability.test.ts`
+4. Run type compatibility tests: `npm test -- test/type-compatibility.test.ts`
+5. Run build: `npm run build`
+6. Run lint: `npm run lint`
+7. Run typecheck: `npm run typecheck`
+8. Optional: Deploy to Vercel preview on PR
+
+**Key features:**
+- Fail fast on breaking changes
+- Cache node_modules for speed
+- Matrix testing (Node 18, 20, 22)
+- Slack/email notification on failure
+
+**Example workflow structure:**
+```yaml
+name: Canary Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  interface-stability:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test -- test/interface-stability.test.ts
+      - run: npm test -- test/type-compatibility.test.ts
+```
+
+**Expected outcome:** Green checkmark on GitHub commits, automated breaking change detection
+
+---
+
+### 3. ~~Investigate System Test Failures~~ ✅ COMPLETED
+
+**Goal:** ~~Determine why HTTP system tests fail (14 failures)~~ **RESOLVED**
+
+**Root Cause Identified:** CORS configuration mismatch in scaffolding
+- Test client sent: `Origin: http://localhost:3000`
+- Server allowed: `http://localhost:3020,http://localhost:3021`
+- All requests rejected with "Not allowed by CORS"
+
+**Fix Applied:**
+```typescript
+// test/system/utils.ts - Changed Origin header to match allowed origins
+headers['Origin'] = 'http://localhost:3020';  // Was: 3000
+```
+
+**Result:** All 16 system tests now pass (100% success rate)
+
+**Feedback:** Scaffolding bug documented in `TODO-FEEDBACK.md` for framework team
+
+**Expected outcome:** ✅ Passing system tests achieved
+
+---
+
+### 4. Create Comprehensive README.md
+
+**Goal:** Document canary project purpose and usage for contributors
+
+**Sections to include:**
+
+1. **Project Purpose:**
+   - Breaking change detection for @mcp-typescript-simple
+   - Uses published npm packages (not workspace)
+   - Validates interface stability
+
+2. **Architecture:**
+   - Custom current-timestamp tool implementation
+   - Interface stability tests (19 tests)
+   - Type compatibility tests (14 tests)
+   - System tests (investigate failures)
+
+3. **Usage:**
+   ```bash
+   npm install
+   npm test  # Run all tests
+   npm run test:interface  # Interface stability
+   npm run test:types      # Type compatibility
+   ```
+
+4. **Development:**
+   - How to add new test cases
+   - How to test against RC packages
+   - How to update package versions
+
+5. **CI/CD:**
+   - GitHub Actions workflow
+   - Daily automated runs
+   - Breaking change notifications
+
+6. **Deployment:**
+   - Vercel URL
+   - How to redeploy
+   - Environment variables
+
+**Expected outcome:** Clear documentation for future contributors
+
+---
+
+## 🎯 Part B: API Extractor Integration (Main Framework Repo)
+
+**Note:** This work happens in `/Users/jeff/Workspaces/mcp-typescript-simple`, NOT in the canary project.
+
+See: `/Users/jeff/Workspaces/mcp-typescript-simple/TODO.md` for these tasks:
+- Install API Extractor
+- Configure for 13 packages
+- Add JSDoc annotations (@public/@beta/@alpha/@internal)
+- Generate baseline API reports
+- Update CI/CD to validate API stability
+
+---
+
+## 🎯 Part C: Documentation Updates (Main Framework Repo)
+
+**Note:** This work happens in `/Users/jeff/Workspaces/mcp-typescript-simple`, NOT in the canary project.
+
+1. Update main repo CHANGELOG.md:
+   - Add entry for canary project creation
+   - Document API Extractor integration
+   - Note breaking change detection strategy
+
+2. Update main repo README.md:
+   - Add "API Stability" section
+   - Link to canary project
+   - Explain versioning strategy (@public/@beta/@alpha)
+
+3. Update main repo docs/:
+   - Add docs/api-stability.md guide
+   - Document deprecation process
+   - Explain semver commitment
+
+---
+
+## 📋 Testing Checklist
+
+Before considering canary project complete:
+
+- [x] Interface stability tests pass (19/19) ✅
+- [x] Type compatibility tests pass (14/14) ✅
+- [x] System tests investigated and resolved/documented (16/16 passing) ✅
+- [ ] Vercel deployment working
+- [ ] GitHub Actions CI/CD running daily
+- [ ] README.md comprehensive
+- [ ] Can upgrade to new @mcp-typescript-simple version and detect changes
+
+---
+
+## 🚀 Quick Start for New Claude Session
 
 ```bash
-cd my-existing-dir
-npx create-mcp-typescript-simple@next . --yes
-# ❌ Invalid project name - rejects "."
+# Navigate to canary project
+cd /Users/jeff/Workspaces/mcp-typescript-simple-canary
+
+# Check current status
+npm test                              # Run all tests
+npx vibe-validate validate            # Run full validation
+
+# Work on next task
+# See sections above for detailed instructions
 ```
-
-**Problem:**
-- Common workflow: create GitHub repo, clone it, then scaffold into it
-- Scaffolding tool rejects "." as invalid project name
-- Forces creating nested directory instead of using current directory
-
-**Expected behavior:**
-```bash
-cd mcp-typescript-simple-canary
-npx create-mcp-typescript-simple@next . --yes
-# ✅ Should scaffold into current directory
-```
-
-**Solution:**
-- Accept "." as special case meaning "current directory"
-- Use current directory name as project name
-- Skip directory creation step if "." is specified
-
-**Impact:** MEDIUM - workaround is to scaffold with temporary name then move files
-
-**Workaround used:**
-1. Scaffold with temporary name: `npx create-mcp-typescript-simple@next canary`
-2. Move/rename to target directory
 
 ---
 
-## 3. System Test Configuration - Port Conflicts (LOW PRIORITY)
+## 📞 Questions for User
 
-**Potential issue** (not yet encountered, but noticed in scaffolded code):
+When starting work on remaining tasks, clarify:
 
-The `vitest.system.config.ts` file includes:
-```typescript
-systemTest: {
-  basePort: 3000
-}
-```
-
-**Consideration:**
-- If developer already has something on port 3000, system tests will fail
-- Framework has self-healing port management (port-utils.ts)
-- But new users might not know this
-
-**Suggestion:**
-- Add comment in scaffolded vitest.system.config.ts explaining port selection
-- Or add "how to change ports" section to generated CLAUDE.md
-
-**Impact:** LOW - self-healing ports already handle this, just documentation clarity
+1. **Vercel deployment:** Use same Vercel account as main project?
+2. **GitHub Actions:** Need Slack/email notifications? Which channel/address?
+3. **System test failures:** High priority to fix or acceptable to document?
+4. **Testing cadence:** Daily runs sufficient or need more frequent checks?
 
 ---
 
-## Implementation Priority
-
-1. **HIGH:** Fix vitest.config.ts workspace aliases (breaks tests immediately)
-2. **MEDIUM:** Support scaffolding into current directory with "." argument
-3. **LOW:** Improve documentation around port configuration
-
----
-
-**Note:** These are NOT bugs in the framework itself, but improvements needed in the `create-mcp-typescript-simple` scaffolding tool to generate better standalone projects.
+**Last Updated:** 2025-11-28
+**Project:** mcp-typescript-simple-canary
+**Framework Version:** @mcp-typescript-simple@0.9.0

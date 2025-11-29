@@ -40,7 +40,8 @@ export const currentTimestampTool = defineTool({
           // This will throw if timezone is invalid
           new Intl.DateTimeFormat('en-US', { timeZone: timezone });
           displayTimezone = timezone;
-        } catch (error) {
+        // eslint-disable-next-line sonarjs/no-ignored-exceptions -- Error is handled by returning user-friendly message
+        } catch (_error) {
           return {
             content: [{
               type: 'text',

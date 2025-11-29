@@ -89,7 +89,8 @@ export function createHttpClient(): AxiosInstance {
 
   // Add Origin header for CI testing to trigger CORS
   if (environment.name === 'express:ci') {
-    headers['Origin'] = 'http://localhost:3000'; // Simulate request from port 3000 to 3001
+    // Use port 3020 to match ALLOWED_ORIGINS configuration in vitest-global-setup.ts
+    headers['Origin'] = 'http://localhost:3020';
   }
 
   const client = axios.create({
