@@ -51,3 +51,9 @@ data/
 
 # Vercel
 .vercel
+
+# Project status - keep it local always, never committed
+TODO.md
+TODO*.md
+
+TODO-FEEDBACK.md
